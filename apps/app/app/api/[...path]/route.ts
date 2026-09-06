@@ -1,12 +1,13 @@
 import { connection } from "next/server";
 import { bufferedProxyResponse } from "@/lib/api-proxy-response";
-import { API_URL } from "@/lib/env";
+import { resolveApiUrl } from "@/lib/env";
 
 async function handler(request: Request): Promise<Response> {
 	await connection();
 
+	const apiUrl = resolveApiUrl();
 	const url = new URL(request.url);
-	const target = `${API_URL}${url.pathname}${url.search}`;
+	const target = `${apiUrl}${url.pathname}${url.search}`;
 
 	const headers = new Headers(request.headers);
 	for (const header of [
@@ -41,12 +42,12 @@ async function handler(request: Request): Promise<Response> {
 		upstream = await fetch(target, init);
 	} catch (error) {
 		console.error(
-			`API proxy: ${API_URL} is not reachable for ${request.method} ${url.pathname}.`,
+			`API proxy: ${apiUrl} is not reachable for ${request.method} ${url.pathname}.`,
 			error,
 		);
 
 		return Response.json(
-			{ error: `The API at ${API_URL} is not reachable.` },
+			{ error: `The API at ${apiUrl} is not reachable.` },
 			{ status: 502 },
 		);
 	}
