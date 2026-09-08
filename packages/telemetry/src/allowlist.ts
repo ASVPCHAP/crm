@@ -119,6 +119,7 @@ export const AGENT_TOOLS = [
 	"enrich_company",
 	"fetch_contact_photo",
 	"find_contact_socials",
+	"find_prospects",
 	"get_contact_work_history",
 	"get_linkedin_profile",
 	"identify_contact",
