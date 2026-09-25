@@ -6,6 +6,7 @@ import { ActivityStampService } from "../crm/activity-stamp.service";
 import { InjectDatabase } from "../database/database.constants";
 import { MailboxMatchService } from "../mailbox/mailbox-match.service";
 import { MailboxTokenService } from "../mailbox/mailbox-token.service";
+import { userIdsMissingSync } from "../mailbox/missing-sync";
 import { SyncStateService } from "../mailbox/sync-state.service";
 import {
 	GOOGLE_PROVIDER_ID,
@@ -22,6 +23,11 @@ import type {
 } from "./google.contracts";
 
 const PURGE_TIMEOUT_MS = 60_000;
+
+const GOOGLE_SYNC_SCOPE = {
+	calendar: SCOPE_FOR_SOURCE.calendar,
+	gmail: SCOPE_FOR_SOURCE.gmail,
+} as const;
 
 @Injectable()
 export class GoogleConnectionService {
@@ -106,11 +112,24 @@ export class GoogleConnectionService {
 					scope: { contains: SCOPE_FOR_SOURCE[source] },
 				})),
 			},
-			select: { userId: true },
+			select: { userId: true, scope: true },
+		});
+		if (accounts.length === 0) return;
+
+		const rows = await this.db.mailboxSync.findMany({
+			where: {
+				userId: { in: [...new Set(accounts.map((row) => row.userId))] },
+				source: { in: [...GOOGLE_SYNC_SOURCES] },
+			},
+			select: { userId: true, source: true },
 		});
 
-		for (const account of new Set(accounts.map((row) => row.userId))) {
-			await this.onConnected(account);
+		for (const userId of userIdsMissingSync({
+			accounts,
+			rows,
+			scopeForSource: GOOGLE_SYNC_SCOPE,
+		})) {
+			await this.onConnected(userId);
 		}
 	}
 

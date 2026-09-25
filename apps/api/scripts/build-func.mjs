@@ -13,6 +13,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const apiDir = dirname(dirname(fileURLToPath(import.meta.url)));
+const vercelConfig = JSON.parse(
+	readFileSync(join(apiDir, "vercel.json"), "utf8"),
+);
+const crons = Array.isArray(vercelConfig.crons) ? vercelConfig.crons : [];
 const repoRoot = dirname(dirname(apiDir));
 const outDir = join(repoRoot, ".vercel/output");
 const funcDir = join(outDir, "functions/api/index.func");
@@ -177,7 +181,7 @@ writeFileSync(
 	JSON.stringify({
 		version: 3,
 		routes: [{ src: "/(.*)", dest: "/api/index" }],
-		crons: [{ path: "/internal/sync/google", schedule: "*/5 * * * *" }],
+		crons,
 	}),
 );
 

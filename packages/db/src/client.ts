@@ -2,6 +2,7 @@ import "@crm/env/load";
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { type Prisma, PrismaClient } from "./generated/prisma/client";
+import { DB_POOL } from "./pool-config";
 
 const connectionString =
 	process.env.NODE_ENV === "test" ? testDatabase() : liveDatabase();
@@ -100,7 +101,14 @@ const logDefinitions: Prisma.LogDefinition[] = [
 
 const createPrismaClient = () => {
 	const client = new PrismaClient({
-		adapter: new PrismaPg({ connectionString }),
+		adapter: new PrismaPg({
+			connectionString,
+			max: DB_POOL.max,
+			connectionTimeoutMillis: DB_POOL.connectTimeoutMs,
+			query_timeout: DB_POOL.queryTimeoutMs,
+			idleTimeoutMillis: DB_POOL.idleTimeoutMs,
+			allowExitOnIdle: DB_POOL.allowExitOnIdle,
+		}),
 		log: logDefinitions,
 	});
 

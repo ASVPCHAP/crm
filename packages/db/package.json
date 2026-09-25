@@ -10,6 +10,7 @@
 		"./blob": "./src/blob.ts",
 		"./client": "./src/client.ts",
 		"./currency": "./src/currency.ts",
+		"./database-unavailable": "./src/database-unavailable.ts",
 		"./crm-events": "./src/crm-events.ts",
 		"./deal-stage": "./src/deal-stage.ts",
 		"./enums": "./src/generated/prisma/enums.ts",
@@ -47,7 +48,8 @@
 		"@crm/env": "workspace:*",
 		"@prisma/adapter-pg": "^7.9.1",
 		"@prisma/client": "^7.9.1",
-		"@vercel/blob": "^2.6.1"
+		"@vercel/blob": "^2.6.1",
+		"zod": "^4.4.3"
 	},
 	"devDependencies": {
 		"@crm/typescript-config": "workspace:*",

@@ -9,6 +9,7 @@ import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { organization } from "better-auth/plugins/organization";
 import { API_KEY_EXPIRATION, API_KEY_HEADER, API_KEY_PREFIX } from "./api-keys";
 import { AUTH_COOKIE_PREFIX } from "./cookies";
+import { readAuthDatabase, withAuthDatabaseErrors } from "./database-error";
 import { env } from "./env";
 import { ensureWorkspaceMembership } from "./organization";
 import {
@@ -73,7 +74,7 @@ export const auth = betterAuth({
 	appName: "CRM",
 	baseURL: env.apiUrl,
 
-	database: prismaAdapter(db, {
+	database: prismaAdapter(withAuthDatabaseErrors(db), {
 		provider: "postgresql",
 	}),
 
@@ -249,10 +250,12 @@ export const auth = betterAuth({
 	databaseHooks: {
 		account: {
 			create: {
-				after: replaceSlackAccount,
+				after: (account) =>
+					readAuthDatabase(() => replaceSlackAccount(account)),
 			},
 			update: {
-				after: replaceSlackAccount,
+				after: (account) =>
+					readAuthDatabase(() => replaceSlackAccount(account)),
 			},
 		},
 
@@ -282,22 +285,24 @@ export const auth = betterAuth({
 
 		session: {
 			create: {
-				before: async (session) => {
-					const workspaceId = await ensureWorkspaceMembership(session.userId);
+				before: async (session) =>
+					readAuthDatabase(async () => {
+						const workspaceId = await ensureWorkspaceMembership(session.userId);
 
-					return {
-						data: { ...session, activeOrganizationId: workspaceId ?? null },
-					};
-				},
+						return {
+							data: { ...session, activeOrganizationId: workspaceId ?? null },
+						};
+					}),
 
-				after: async (session) => {
-					const user = await db.user.findUnique({
-						where: { id: session.userId },
-						select: { id: true, email: true },
-					});
+				after: async (session) =>
+					readAuthDatabase(async () => {
+						const user = await db.user.findUnique({
+							where: { id: session.userId },
+							select: { id: true, email: true },
+						});
 
-					if (user) await notifySignedIn(user);
-				},
+						if (user) await notifySignedIn(user);
+					}),
 			},
 		},
 	},

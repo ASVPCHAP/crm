@@ -4,6 +4,7 @@ import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ActivityStampService } from "../crm/activity-stamp.service";
 import { InjectDatabase } from "../database/database.constants";
 import { MailboxTokenService } from "../mailbox/mailbox-token.service";
+import { userIdsMissingSync } from "../mailbox/missing-sync";
 import { SyncStateService } from "../mailbox/sync-state.service";
 import {
 	MICROSOFT_PROVIDER_ID,
@@ -19,6 +20,10 @@ import type {
 } from "./microsoft.contracts";
 
 const PURGE_TIMEOUT_MS = 60_000;
+
+const MICROSOFT_SYNC_SCOPE = {
+	outlook: SCOPE_FOR_SOURCE.outlook,
+} as const;
 
 @Injectable()
 export class MicrosoftConnectionService {
@@ -106,10 +111,23 @@ export class MicrosoftConnectionService {
 					scope: { contains: SCOPE_FOR_SOURCE[source] },
 				})),
 			},
-			select: { userId: true },
+			select: { userId: true, scope: true },
+		});
+		if (accounts.length === 0) return;
+
+		const rows = await this.db.mailboxSync.findMany({
+			where: {
+				userId: { in: [...new Set(accounts.map((row) => row.userId))] },
+				source: { in: [...MICROSOFT_SYNC_SOURCES] },
+			},
+			select: { userId: true, source: true },
 		});
 
-		for (const userId of new Set(accounts.map((row) => row.userId))) {
+		for (const userId of userIdsMissingSync({
+			accounts,
+			rows,
+			scopeForSource: MICROSOFT_SYNC_SCOPE,
+		})) {
 			await this.onConnected(userId);
 		}
 	}
