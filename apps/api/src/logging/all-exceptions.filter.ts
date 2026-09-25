@@ -1,3 +1,4 @@
+import { isDatabaseUnavailable } from "@crm/db/database-unavailable";
 import { apiError } from "@crm/telemetry";
 import {
 	type ArgumentsHost,
@@ -23,8 +24,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
 		const request = http.getRequest<Request>();
 		const response = http.getResponse<Response>();
 
-		const status =
-			exception instanceof HttpException
+		const databaseDown = isDatabaseUnavailable(exception);
+		const status = databaseDown
+			? HttpStatus.SERVICE_UNAVAILABLE
+			: exception instanceof HttpException
 				? exception.getStatus()
 				: HttpStatus.INTERNAL_SERVER_ERROR;
 		const requestId = getRequestContext()?.requestId;
@@ -35,7 +38,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
 			return;
 		}
 
-		response.status(status).json(body(exception, status, requestId));
+		response
+			.status(status)
+			.json(
+				databaseDown
+					? databaseDownBody(status, requestId)
+					: body(exception, status, requestId),
+			);
 	}
 
 	private log(exception: unknown, status: number, request: Request): void {
@@ -59,6 +68,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
 		this.logger.debug(payload);
 	}
+}
+
+function databaseDownBody(
+	status: number,
+	requestId: string | undefined,
+): ErrorBody {
+	const reported: ErrorBody = {
+		statusCode: status,
+		message: "The database is unreachable.",
+	};
+	if (!requestId) return reported;
+	return { ...reported, requestId };
 }
 
 function routePattern(request: Request): string | null {

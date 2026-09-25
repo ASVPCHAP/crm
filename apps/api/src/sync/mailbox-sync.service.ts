@@ -9,8 +9,7 @@ import {
 import { SyncStateService } from "../mailbox/sync-state.service";
 import { MicrosoftConnectionService } from "../microsoft/microsoft-connection.service";
 import { MicrosoftSyncService } from "../microsoft/microsoft-sync.service";
-
-const TICK_BUDGET_MS = 60_000;
+import { MAILBOX_SYNC } from "./sync-config";
 
 export type TickSummary = {
 	attempted: number;
@@ -44,13 +43,16 @@ export class MailboxSyncService {
 			durationMs: 0,
 		};
 
-		await this.googleConnections.reconcileAll();
-		await this.microsoftConnections.reconcileAll();
+		await Promise.all([
+			this.googleConnections.reconcileAll(),
+			this.microsoftConnections.reconcileAll(),
+		]);
 
 		const due = await this.state.due(new Date());
+		if (due.length === 0) return this.finish(summary, startedAt);
 
 		for (const [index, row] of due.entries()) {
-			if (Date.now() - startedAt > TICK_BUDGET_MS) {
+			if (Date.now() - startedAt > MAILBOX_SYNC.tick.budgetMs) {
 				this.logger.log({
 					message: "Sync tick budget reached",
 					remaining: due.length - index,
@@ -97,6 +99,10 @@ export class MailboxSyncService {
 			}
 		}
 
+		return this.finish(summary, startedAt);
+	}
+
+	private finish(summary: TickSummary, startedAt: number): TickSummary {
 		summary.durationMs = Date.now() - startedAt;
 
 		this.logger.log({

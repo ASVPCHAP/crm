@@ -132,6 +132,22 @@ beforeEach(() => {
 	state = new FakeState();
 });
 
+describe("runDue finds no work", () => {
+	it("does not call a provider when nothing is due", async () => {
+		let calls = 0;
+		const service = build(state, async () => {
+			calls += 1;
+			return null;
+		});
+
+		const summary = await service.runDue();
+
+		expect(calls).toBe(0);
+		expect(summary.attempted).toBe(0);
+		expect(summary.synced).toBe(0);
+	});
+});
+
 describe("runDue claims a mailbox before it syncs", () => {
 	it("does not let two overlapping ticks run the same mailbox", async () => {
 		state.add("a", "gmail");
